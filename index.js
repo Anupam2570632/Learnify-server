@@ -29,10 +29,15 @@ async function run() {
 
         const userCollection = client.db('Learnify').collection('users')
         const teacherRequestCollection = client.db('Learnify').collection('teacherRequest')
+        const classCollection = client.db('Learnify').collection('classes')
 
 
         app.get('/users', async (req, res) => {
-            const result = await userCollection.find().toArray();
+            let query = {}
+            if (req.query.email) {
+                query = { email: req.query.email }
+            }
+            const result = await userCollection.find(query).toArray();
             res.send(result)
         })
 
@@ -41,12 +46,24 @@ async function run() {
             const result = await userCollection.insertOne(user)
             res.send(result)
         })
+        app.patch('/user/:email', async (req, res) => {
+            const email = req.params.email;
+            const filter = { email: email };
+            const updatedDoc = {
+                $set: {
+                    role: req.body.role
+                }
+            }
+            const result = await userCollection.updateOne(filter, updatedDoc)
+            res.send(result)
+        })
 
         app.post('/teacherRequest', async (req, res) => {
             const request = req.body;
             const result = await teacherRequestCollection.insertOne(request)
             res.send(result)
         })
+
         app.patch('/teacherRequest/:id', async (req, res) => {
             const id = req.params.id;
             const filter = { _id: new ObjectId(id) };
@@ -65,6 +82,12 @@ async function run() {
                 query = { email: req.query.email }
             }
             const result = await teacherRequestCollection.find(query).toArray()
+            res.send(result)
+        })
+
+        app.post('/classes', async (req, res) => {
+            const aClass = req.body;
+            const result = await classCollection.insertOne(aClass)
             res.send(result)
         })
 
