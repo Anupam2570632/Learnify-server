@@ -91,8 +91,22 @@ async function run() {
             res.send(result)
         })
 
-        app.get('/classes', async(req, res)=>{
+        app.get('/classes', async (req, res) => {
             const result = await classCollection.find().toArray();
+            res.send(result)
+        })
+
+        app.patch('/classes/:id', async (req, res) => {
+            const id = req.params.id;
+            const doc = req.body;
+            const filter = { _id: new ObjectId(id) }
+            const updatedDoc = {
+                $set: {
+                    status: doc.status
+                }
+            }
+
+            const result = await classCollection.updateOne(filter, updatedDoc)
             res.send(result)
         })
 
