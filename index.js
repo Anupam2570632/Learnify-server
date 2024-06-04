@@ -2,6 +2,8 @@ const express = require('express')
 const cors = require('cors')
 const jwt = require('jsonwebtoken')
 require('dotenv').config();
+const stripe = require('stripe')(process.env.STRPIE_secret_key)
+
 
 const app = express()
 
@@ -31,11 +33,12 @@ async function run() {
         const userCollection = client.db('Learnify').collection('users')
         const teacherRequestCollection = client.db('Learnify').collection('teacherRequest')
         const classCollection = client.db('Learnify').collection('classes')
+        const paymentCollection = client.db('Learnify').collection('payment')
 
 
         //middleWires
         const verifyToken = (req, res, next) => {
-            console.log('inside verify token', req.headers.authorization)
+            // console.log('inside verify token', req.headers.authorization)
             if (!req.headers.authorization) {
                 return res.status(401).send({ message: "forbidden access" })
             }
@@ -100,7 +103,7 @@ async function run() {
 
 
 
-        app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
+        app.get('/users', verifyToken, async (req, res) => {
             let query = {}
             if (req.query.email) {
                 query = { email: req.query.email }
@@ -132,7 +135,7 @@ async function run() {
             res.send(result)
         })
 
-        app.patch('/teacherRequest/:id',verifyToken, verifyAdmin, async (req, res) => {
+        app.patch('/teacherRequest/:id', verifyToken, verifyAdmin, async (req, res) => {
             const id = req.params.id;
             const filter = { _id: new ObjectId(id) };
             const updatedDoc = {
@@ -144,7 +147,7 @@ async function run() {
             res.send(result)
         })
 
-        app.get('/teacherRequest',verifyToken, verifyAdmin, async (req, res) => {
+        app.get('/teacherRequest', verifyToken, async (req, res) => {
             let query = {}
             if (req.query.email) {
                 query = { email: req.query.email }
@@ -159,9 +162,73 @@ async function run() {
             res.send(result)
         })
 
+
+        app.get('/user-classes/:email', async (req, res) => {
+            const userEmail = req.params.email;
+
+            // Find all payments made by the user
+            const payments = await paymentCollection.find({ email: userEmail }).toArray();
+
+            if (payments.length === 0) {
+                return res.status(404).send('No classes found for this user');
+            }
+
+            // Extract classIds from the payments
+            const classIds = payments.map(payment => new ObjectId(payment.classId));
+
+            // Find classes corresponding to the classIds
+            const classes = await classCollection.find({ _id: { $in: classIds } }).toArray();
+
+            res.send(classes);
+        });
+
+
+
         app.get('/classes', async (req, res) => {
-            const result = await classCollection.find().toArray();
+            let query = {}
+            if (req.query.id) {
+                query = { _id: new ObjectId(req.query.id) }
+            }
+            const result = await classCollection.find(query).toArray();
             res.send(result)
+        })
+
+        app.post('/create-payment-intent', async (req, res) => {
+            const { price } = req.body;
+            const amount = parseInt(price * 100);
+
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: 'usd',
+                payment_method_types: ['card']
+            })
+
+            res.send({
+                clientSecret: paymentIntent.client_secret
+            })
+        })
+
+
+
+        app.post('/payment', async (req, res) => {
+            const payment = req.body;
+
+            const paymentResult = await paymentCollection.insertOne(payment);
+
+            // Find the class and increment its total enrollment
+            const filter = { _id: new ObjectId(payment.classId) };
+            const classDoc = await classCollection.findOne(filter);
+
+            if (classDoc) {
+                const updatedDoc = {
+                    $set: {
+                        total_enrollment: (classDoc.total_enrollment || 0) + 1 // Ensure total_enrollment is a number
+                    }
+                };
+                const updateResult = await classCollection.updateOne(filter, updatedDoc);
+                res.send({ paymentResult, updateResult });
+            }
+
         })
 
         app.patch('/class/:id', verifyToken, verifyAdmin, async (req, res) => {
