@@ -1,5 +1,6 @@
 const express = require('express')
 const cors = require('cors')
+const jwt = require('jsonwebtoken')
 require('dotenv').config();
 
 const app = express()
@@ -32,8 +33,36 @@ async function run() {
         const classCollection = client.db('Learnify').collection('classes')
 
 
-        app.get('/users/admin/:email', async (req, res) => {
+        //middleWires
+        const verifyToken = (req, res, next) => {
+            console.log('inside verify token', req.headers.authorization)
+            if (!req.headers.authorization) {
+                return res.status(401).send({ message: "forbidden access" })
+            }
+            const token = req.headers.authorization.split(' ')[1];
+            jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+                if (err) {
+                    return res.status(401).send({ message: "forbidden access" })
+                }
+                req.decoded = decoded
+                next()
+            })
+        }
+
+        app.post('/jwt', async (req, res) => {
+            const user = req.body;
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' })
+            res.send({ token })
+        })
+
+
+
+        app.get('/users/admin/:email', verifyToken, async (req, res) => {
             const email = req.params.email;
+
+            if (email !== req.decoded.email) {
+                return res.status(403).send({ message: 'unauthorized access' })
+            }
 
             const query = { email: email };
             const user = await userCollection.findOne(query);
@@ -44,8 +73,23 @@ async function run() {
             res.send({ admin });
         })
 
+        
+        app.get('/users/teacher/:email', verifyToken, async (req, res) => {
+            const email = req.params.email;
 
-        app.get('/users', async (req, res) => {
+            const query = { email: email };
+            const user = await userCollection.findOne(query);
+            let teacher = false;
+            if (user) {
+                teacher = user?.role === 'teacher';
+            }
+            res.send({ teacher });
+        })
+
+
+
+
+        app.get('/users', verifyToken, async (req, res) => {
             let query = {}
             if (req.query.email) {
                 query = { email: req.query.email }
