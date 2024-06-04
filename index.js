@@ -32,6 +32,19 @@ async function run() {
         const classCollection = client.db('Learnify').collection('classes')
 
 
+        app.get('/users/admin/:email', async (req, res) => {
+            const email = req.params.email;
+
+            const query = { email: email };
+            const user = await userCollection.findOne(query);
+            let admin = false;
+            if (user) {
+                admin = user?.role === 'admin';
+            }
+            res.send({ admin });
+        })
+
+
         app.get('/users', async (req, res) => {
             let query = {}
             if (req.query.email) {
@@ -96,13 +109,12 @@ async function run() {
             res.send(result)
         })
 
-        app.patch('/classes/:id', async (req, res) => {
+        app.patch('/class/:id', async (req, res) => {
             const id = req.params.id;
-            const doc = req.body;
             const filter = { _id: new ObjectId(id) }
             const updatedDoc = {
                 $set: {
-                    status: doc.status
+                    status: req.body.status
                 }
             }
 
