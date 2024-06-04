@@ -49,6 +49,17 @@ async function run() {
             })
         }
 
+        const verifyAdmin = async (req, res, next) => {
+            const email = req.decoded.email;
+            const query = { email: email }
+            const user = await userCollection.findOne(query)
+            const isAdmin = user?.role === 'admin'
+            if (!isAdmin) {
+                return res.status(403).send('forbidden access');
+            }
+            next()
+        }
+
         app.post('/jwt', async (req, res) => {
             const user = req.body;
             const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' })
@@ -73,7 +84,7 @@ async function run() {
             res.send({ admin });
         })
 
-        
+
         app.get('/users/teacher/:email', verifyToken, async (req, res) => {
             const email = req.params.email;
 
@@ -89,7 +100,7 @@ async function run() {
 
 
 
-        app.get('/users', verifyToken, async (req, res) => {
+        app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
             let query = {}
             if (req.query.email) {
                 query = { email: req.query.email }
@@ -103,7 +114,7 @@ async function run() {
             const result = await userCollection.insertOne(user)
             res.send(result)
         })
-        app.patch('/user/:email', async (req, res) => {
+        app.patch('/user/:email', verifyToken, verifyAdmin, async (req, res) => {
             const email = req.params.email;
             const filter = { email: email };
             const updatedDoc = {
@@ -121,7 +132,7 @@ async function run() {
             res.send(result)
         })
 
-        app.patch('/teacherRequest/:id', async (req, res) => {
+        app.patch('/teacherRequest/:id',verifyToken, verifyAdmin, async (req, res) => {
             const id = req.params.id;
             const filter = { _id: new ObjectId(id) };
             const updatedDoc = {
@@ -133,7 +144,7 @@ async function run() {
             res.send(result)
         })
 
-        app.get('/teacherRequest', async (req, res) => {
+        app.get('/teacherRequest',verifyToken, verifyAdmin, async (req, res) => {
             let query = {}
             if (req.query.email) {
                 query = { email: req.query.email }
@@ -153,7 +164,7 @@ async function run() {
             res.send(result)
         })
 
-        app.patch('/class/:id', async (req, res) => {
+        app.patch('/class/:id', verifyToken, verifyAdmin, async (req, res) => {
             const id = req.params.id;
             const filter = { _id: new ObjectId(id) }
             const updatedDoc = {
