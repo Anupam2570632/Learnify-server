@@ -162,6 +162,13 @@ async function run() {
             res.send(result)
         })
 
+        app.delete('/class/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) }
+            const result = await classCollection.deleteOne(query)
+            res.send(result)
+        })
+
 
         app.get('/user-classes/:email', async (req, res) => {
             const userEmail = req.params.email;
@@ -186,10 +193,31 @@ async function run() {
 
         app.get('/classes', async (req, res) => {
             let query = {}
+            if (req.query.email) {
+                query = { email: req.query.email }
+            }
             if (req.query.id) {
                 query = { _id: new ObjectId(req.query.id) }
             }
             const result = await classCollection.find(query).toArray();
+            res.send(result)
+        })
+        app.put('/class/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) }
+            const bodyClass = req.body;
+            const options = { upsert: true };
+
+            const updatedDoc = {
+                $set: {
+                    title: bodyClass.title,
+                    price: bodyClass.price,
+                    description: bodyClass.description,
+                    image: bodyClass.image
+                }
+            }
+
+            const result = await classCollection.updateOne(filter, updatedDoc, options)
             res.send(result)
         })
 
