@@ -35,6 +35,7 @@ async function run() {
         const classCollection = client.db('Learnify').collection('classes')
         const paymentCollection = client.db('Learnify').collection('payment')
         const assignmentCollection = client.db('Learnify').collection('assignment')
+        const submissionsCollection = client.db('Learnify').collection('submission')
 
 
         //middleWires
@@ -177,6 +178,112 @@ async function run() {
             const result = await assignmentCollection.insertOne(newAssignment);
             res.send(result)
         });
+
+        app.get('/assignment/:id', async (req, res) => {
+            const id = req.params.id
+            const query = { classId: new ObjectId(id) }
+            const result = await assignmentCollection.find(query).toArray()
+            res.send(result)
+        })
+        app.get('/assignment', async (req, res) => {
+            const result = await assignmentCollection.find().toArray()
+            res.send(result)
+        })
+
+        app.post('/submit/:id', async (req, res) => {
+            const id = req.params.id;
+            const submission = {
+                classId: new ObjectId(id),
+                submissionDate: new Date(),
+            }
+            const result = await submissionsCollection.insertOne(submission)
+            res.send(result)
+        })
+
+        // Route to retrieve submission data for a specific class
+        app.get('/submission-data/:classId', async (req, res) => {
+            try {
+                const { classId } = req.params;
+
+                const aggregationPipeline = [
+                    {
+                        $match: { classId: new ObjectId(classId) }
+                    },
+                    {
+                        $group: {
+                            _id: { $dateToString: { format: "%Y-%m-%d", date: "$submissionDate" } },
+                            totalSubmissions: { $sum: 1 }
+                        }
+                    },
+                    {
+                        $group: {
+                            _id: null,
+                            totalSubmissions: { $sum: "$totalSubmissions" },
+                            uniqueSubmissionDates: { $sum: 1 }
+                        }
+                    },
+                    {
+                        $project: {
+                            _id: 0,
+                            totalSubmissions: 1,
+                            uniqueSubmissionDates: 1,
+                            submissionsPerDate: { $divide: ["$totalSubmissions", "$uniqueSubmissionDates"] }
+                        }
+                    }
+                ];
+
+                const result = await submissionsCollection.aggregate(aggregationPipeline).toArray();
+
+                if (result.length > 0) {
+                    res.send(result[0]);
+                } else {
+                    res.send({ totalSubmissions: 0, uniqueSubmissionDates: 0, submissionsPerDate: 0 });
+                }
+            } catch (error) {
+                console.error('Error fetching submission data:', error);
+                res.status(500).send('Internal server error');
+            }
+        });
+
+        // Route to get the number of assignments for a specific class
+        app.get('/assignments-count/:classId', async (req, res) => {
+            try {
+                const { classId } = req.params;
+
+                const aggregationPipeline = [
+                    {
+                        $match: { classId: new ObjectId(classId) }
+                    },
+                    {
+                        $group: {
+                            _id: "$classId",
+                            totalAssignments: { $sum: 1 }
+                        }
+                    },
+                    {
+                        $project: {
+                            classId: "$_id",
+                            totalAssignments: 1,
+                            _id: 0
+                        }
+                    }
+                ];
+
+                const assignmentCounts = await assignmentCollection.aggregate(aggregationPipeline).toArray();
+
+                if (assignmentCounts.length > 0) {
+                    res.send(assignmentCounts[0]);
+                } else {
+                    res.send({ classId: classId, totalAssignments: 0 });
+                }
+            } catch (error) {
+                console.error('Error fetching assignment counts:', error);
+                res.status(500).send('Internal server error');
+            }
+        });
+
+
+
 
         app.delete('/class/:id', async (req, res) => {
             const id = req.params.id;
