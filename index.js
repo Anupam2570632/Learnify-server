@@ -34,6 +34,7 @@ async function run() {
         const teacherRequestCollection = client.db('Learnify').collection('teacherRequest')
         const classCollection = client.db('Learnify').collection('classes')
         const paymentCollection = client.db('Learnify').collection('payment')
+        const assignmentCollection = client.db('Learnify').collection('assignment')
 
 
         //middleWires
@@ -161,6 +162,21 @@ async function run() {
             const result = await classCollection.insertOne(aClass)
             res.send(result)
         })
+
+        app.post('/classes/:id/assignments', async (req, res) => {
+            const { id } = req.params;
+            const { title, deadline, description } = req.body;
+
+            const newAssignment = {
+                title,
+                deadline,
+                description,
+                classId: new ObjectId(id)
+            };
+
+            const result = await assignmentCollection.insertOne(newAssignment);
+            res.send(result)
+        });
 
         app.delete('/class/:id', async (req, res) => {
             const id = req.params.id;
