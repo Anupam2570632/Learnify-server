@@ -65,6 +65,7 @@ async function run() {
             next()
         }
 
+        //jwt api
         app.post('/jwt', async (req, res) => {
             const user = req.body;
             const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' })
@@ -72,7 +73,7 @@ async function run() {
         })
 
 
-
+        //web related api
         app.get('/users/admin/:email', verifyToken, async (req, res) => {
             const email = req.params.email;
 
@@ -87,6 +88,24 @@ async function run() {
                 admin = user?.role === 'admin';
             }
             res.send({ admin });
+        })
+
+        app.get('/learnify-stat', async (req, res) => {
+            const classCount = await classCollection.estimatedDocumentCount();
+            const userCount = await userCollection.estimatedDocumentCount()
+
+            const result = await classCollection.aggregate([
+                {
+                    $group: {
+                        _id: null,
+                        totalEnrollment: { $sum: "$total_enrollment" }
+                    }
+                }
+            ]).toArray();
+
+            const totalEnrollment = result.length > 0 ? result[0].totalEnrollment : 0;
+
+            res.send({ classCount, userCount, totalEnrollment })
         })
 
 
