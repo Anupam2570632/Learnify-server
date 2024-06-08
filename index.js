@@ -36,6 +36,7 @@ async function run() {
         const paymentCollection = client.db('Learnify').collection('payment')
         const assignmentCollection = client.db('Learnify').collection('assignment')
         const submissionsCollection = client.db('Learnify').collection('submission')
+        const feedbackCollection = client.db('Learnify').collection('feedback')
 
 
         //middleWires
@@ -90,6 +91,23 @@ async function run() {
             res.send({ admin });
         })
 
+        app.post('/feedback', async (req, res) => {
+            const feedback = req.body;
+
+            const result = await feedbackCollection.insertOne(feedback)
+            res.send(result)
+        })
+
+        app.get('/feedback', async (req, res) => {
+            let query = {};
+            if (req.query.id) {
+                query = { classId: req.query.id }
+            }
+            const result = await feedbackCollection.find(query).toArray();
+            res.send(result)
+        })
+
+
         app.get('/learnify-stat', async (req, res) => {
             const classCount = await classCollection.estimatedDocumentCount();
             const userCount = await userCollection.estimatedDocumentCount()
@@ -103,10 +121,12 @@ async function run() {
                 }
             ]).toArray();
 
+
             const totalEnrollment = result.length > 0 ? result[0].totalEnrollment : 0;
 
             res.send({ classCount, userCount, totalEnrollment })
         })
+
 
 
         app.get('/users/teacher/:email', verifyToken, async (req, res) => {
