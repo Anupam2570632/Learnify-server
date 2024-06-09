@@ -108,6 +108,8 @@ async function run() {
         })
 
 
+
+
         app.get('/learnify-stat', async (req, res) => {
             const classCount = await classCollection.estimatedDocumentCount();
             const userCount = await userCollection.estimatedDocumentCount()
@@ -148,6 +150,19 @@ async function run() {
             let query = {}
             if (req.query.email) {
                 query = { email: req.query.email }
+            }
+            if (req.query.page && req.query.size) {
+                const currentPage = parseInt(req.query.page);
+                const size = parseInt(req.query.size);
+                if (req.query.search) {
+                    query.name = { $regex: req.query.search, $options: 'i' }; // case-insensitive search
+                    const result = await userCollection.find(query).toArray()
+                    res.send(result)
+                    return
+                }
+                const result = await userCollection.find(query).skip((currentPage - 1) * size).limit(size).toArray()
+                res.send(result)
+                return
             }
             const result = await userCollection.find(query).toArray();
             res.send(result)
@@ -354,16 +369,42 @@ async function run() {
 
 
         app.get('/classes', async (req, res) => {
-            let query = {}
-            if (req.query.email) {
-                query = { email: req.query.email }
+            try {
+                let query = {};
+        
+                // Handle filtering by email
+                if (req.query.email) {
+                    query = { email: req.query.email };
+                }
+        
+                // Handle filtering by id
+                if (req.query.id) {
+                    query = { _id: new ObjectId(req.query.id) };
+                }
+        
+                // Pagination
+                const page = parseInt(req.query.page) || 1;
+                const pageSize = parseInt(req.query.size) || 6;
+                const skip = (page - 1) * pageSize;
+        
+                // Search by class name
+                if (req.query.search) {
+                    query.title = { $regex: req.query.search, $options: 'i' };
+                }
+        
+                // Perform the query
+                const classes = await classCollection.find(query)
+                    .skip(skip)
+                    .limit(pageSize)
+                    .toArray();
+        
+                res.send(classes);
+            } catch (error) {
+                console.error('Error fetching classes:', error);
+                res.status(500).send({ error: 'An error occurred while fetching classes.' });
             }
-            if (req.query.id) {
-                query = { _id: new ObjectId(req.query.id) }
-            }
-            const result = await classCollection.find(query).toArray();
-            res.send(result)
-        })
+        });
+        
         app.put('/class/:id', async (req, res) => {
             const id = req.params.id;
             const filter = { _id: new ObjectId(id) }
