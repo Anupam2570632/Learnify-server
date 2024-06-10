@@ -242,13 +242,28 @@ async function run() {
         })
 
         app.get('/teacherRequest', async (req, res) => {
-            let query = {}
+            let query = {};
             if (req.query.email) {
-                query = { email: req.query.email }
+                query = { email: req.query.email };
             }
-            const result = await teacherRequestCollection.find(query).toArray()
-            res.send(result)
-        })
+        
+            // Extract page and size from query parameters
+            const page = parseInt(req.query.page) || 1;  
+            const size = parseInt(req.query.size) || 10; 
+        
+            try {
+                const skip = (page - 1) * size;
+        
+                const result = await teacherRequestCollection.find(query)
+                    .skip(skip)
+                    .limit(size)
+                    .toArray();
+        
+                res.send(result);
+            } catch (error) {
+                res.status(500).send({ message: 'Error fetching teacher requests', error });
+            }
+        });
 
         app.post('/classes', verifyToken, async (req, res) => {
             const aClass = req.body;
