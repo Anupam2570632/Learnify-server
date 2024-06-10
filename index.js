@@ -7,7 +7,14 @@ const stripe = require('stripe')(process.env.STRPIE_secret_key)
 
 const app = express()
 
-app.use(cors())
+app.use(
+    cors({
+        origin: [
+            "http://localhost:5173",
+            "https://react-learnify-web.netlify.app",
+        ]
+    })
+);
 app.use(express.json())
 const port = process.env.PORT || 5000;
 
@@ -111,8 +118,10 @@ async function run() {
 
 
         app.get('/learnify-stat', async (req, res) => {
-            const classCount = await classCollection.estimatedDocumentCount();
+            const acceptedClassCount = await classCollection.countDocuments({ status: "accepted" });
             const userCount = await userCollection.estimatedDocumentCount()
+            const allClassCount = await classCollection.estimatedDocumentCount()
+            const requestCount = await teacherRequestCollection.estimatedDocumentCount()
 
             const result = await classCollection.aggregate([
                 {
@@ -126,7 +135,7 @@ async function run() {
 
             const totalEnrollment = result.length > 0 ? result[0].totalEnrollment : 0;
 
-            res.send({ classCount, userCount, totalEnrollment })
+            res.send({ acceptedClassCount, allClassCount, requestCount, userCount, totalEnrollment })
         })
 
 
@@ -168,11 +177,18 @@ async function run() {
             res.send(result)
         })
 
+
         app.post('/users', async (req, res) => {
             const user = req.body;
-            const result = await userCollection.insertOne(user)
-            res.send(result)
+            const query = { email: user.email }
+            const isExist = await userCollection.findOne(query);
+            if (isExist) {
+                return res.send({ message: 'user already exists', insertedId: null })
+            }
+            const result = await userCollection.insertOne(user);
+            res.send(result);
         })
+
         app.patch('/user/:email', verifyToken, verifyAdmin, async (req, res) => {
             const email = req.params.email;
             const filter = { email: email };
@@ -191,6 +207,28 @@ async function run() {
             res.send(result)
         })
 
+        app.put('/teacherRequest/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) }
+            const request = req.body;
+            const options = { upsert: true };
+
+            const updatedDoc = {
+                $set: {
+                    userName: request.userName,
+                    email: request.email,
+                    experience: request.experience,
+                    title: request.title,
+                    category: request.category,
+                    status: request.status,
+                    photoURL: request.photoURL
+                }
+            }
+
+            const result = await teacherRequestCollection.updateOne(filter, updatedDoc, options)
+            res.send(result)
+        })
+
         app.patch('/teacherRequest/:id', verifyToken, verifyAdmin, async (req, res) => {
             const id = req.params.id;
             const filter = { _id: new ObjectId(id) };
@@ -203,7 +241,7 @@ async function run() {
             res.send(result)
         })
 
-        app.get('/teacherRequest', verifyToken, async (req, res) => {
+        app.get('/teacherRequest', async (req, res) => {
             let query = {}
             if (req.query.email) {
                 query = { email: req.query.email }
@@ -371,40 +409,44 @@ async function run() {
         app.get('/classes', async (req, res) => {
             try {
                 let query = {};
-        
+
                 // Handle filtering by email
                 if (req.query.email) {
                     query = { email: req.query.email };
                 }
-        
+
                 // Handle filtering by id
                 if (req.query.id) {
                     query = { _id: new ObjectId(req.query.id) };
                 }
-        
+
                 // Pagination
                 const page = parseInt(req.query.page) || 1;
                 const pageSize = parseInt(req.query.size) || 6;
                 const skip = (page - 1) * pageSize;
-        
+
+                if (req.query.status === 'accepted') {
+                    query.status = 'accepted'
+                }
+
                 // Search by class name
                 if (req.query.search) {
                     query.title = { $regex: req.query.search, $options: 'i' };
                 }
-        
+
                 // Perform the query
                 const classes = await classCollection.find(query)
                     .skip(skip)
                     .limit(pageSize)
                     .toArray();
-        
+
                 res.send(classes);
             } catch (error) {
                 console.error('Error fetching classes:', error);
                 res.status(500).send({ error: 'An error occurred while fetching classes.' });
             }
         });
-        
+
         app.put('/class/:id', async (req, res) => {
             const id = req.params.id;
             const filter = { _id: new ObjectId(id) }
@@ -477,8 +519,8 @@ async function run() {
 
 
 
-        await client.db("admin").command({ ping: 1 });
-        console.log("Pinged your deployment. You successfully connected to MongoDB!");
+        // await client.db("admin").command({ ping: 1 });
+        // console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {
         // Ensures that the client will close when you finish/error
         // await client.close();
