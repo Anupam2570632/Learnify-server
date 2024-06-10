@@ -201,13 +201,13 @@ async function run() {
             res.send(result)
         })
 
-        app.post('/teacherRequest', async (req, res) => {
+        app.post('/teacherRequest', verifyToken, async (req, res) => {
             const request = req.body;
             const result = await teacherRequestCollection.insertOne(request)
             res.send(result)
         })
 
-        app.put('/teacherRequest/:id', async (req, res) => {
+        app.put('/teacherRequest/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             const filter = { _id: new ObjectId(id) }
             const request = req.body;
@@ -250,13 +250,13 @@ async function run() {
             res.send(result)
         })
 
-        app.post('/classes', async (req, res) => {
+        app.post('/classes', verifyToken, async (req, res) => {
             const aClass = req.body;
             const result = await classCollection.insertOne(aClass)
             res.send(result)
         })
 
-        app.post('/classes/:id/assignments', async (req, res) => {
+        app.post('/classes/:id/assignments', verifyToken, async (req, res) => {
             const { id } = req.params;
             const { title, deadline, description } = req.body;
 
@@ -271,18 +271,18 @@ async function run() {
             res.send(result)
         });
 
-        app.get('/assignment/:id', async (req, res) => {
+        app.get('/assignment/:id', verifyToken, async (req, res) => {
             const id = req.params.id
             const query = { classId: new ObjectId(id) }
             const result = await assignmentCollection.find(query).toArray()
             res.send(result)
         })
-        app.get('/assignment', async (req, res) => {
+        app.get('/assignment', verifyToken, async (req, res) => {
             const result = await assignmentCollection.find().toArray()
             res.send(result)
         })
 
-        app.post('/submit/:id', async (req, res) => {
+        app.post('/submit/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             const submission = {
                 classId: new ObjectId(id),
@@ -293,7 +293,7 @@ async function run() {
         })
 
         // Route to retrieve submission data for a specific class
-        app.get('/submission-data/:classId', async (req, res) => {
+        app.get('/submission-data/:classId', verifyToken, async (req, res) => {
             try {
                 const { classId } = req.params;
 
@@ -338,7 +338,7 @@ async function run() {
         });
 
         // Route to get the number of assignments for a specific class
-        app.get('/assignments-count/:classId', async (req, res) => {
+        app.get('/assignments-count/:classId', verifyToken, async (req, res) => {
             try {
                 const { classId } = req.params;
 
@@ -377,7 +377,7 @@ async function run() {
 
 
 
-        app.delete('/class/:id', async (req, res) => {
+        app.delete('/class/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) }
             const result = await classCollection.deleteOne(query)
@@ -385,7 +385,7 @@ async function run() {
         })
 
 
-        app.get('/user-classes/:email', async (req, res) => {
+        app.get('/user-classes/:email', verifyToken, async (req, res) => {
             const userEmail = req.params.email;
 
             // Find all payments made by the user
@@ -447,7 +447,7 @@ async function run() {
             }
         });
 
-        app.put('/class/:id', async (req, res) => {
+        app.put('/class/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             const filter = { _id: new ObjectId(id) }
             const bodyClass = req.body;
