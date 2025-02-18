@@ -44,6 +44,7 @@ async function run() {
         const assignmentCollection = client.db('Learnify').collection('assignment')
         const submissionsCollection = client.db('Learnify').collection('submission')
         const feedbackCollection = client.db('Learnify').collection('feedback')
+        const quizCollection = client.db('Learnify').collection("quiz")
 
 
         //middleWires
@@ -286,7 +287,38 @@ async function run() {
             res.send(result)
         });
 
-        app.get('/assignment/:id', verifyToken, async (req, res) => {
+        //quiz post api
+        app.post('/classes/:id/quizes', verifyToken, async(req, res)=>{
+            const {id} = req.params;
+            const {quizTitle, quizTime, questionJson} = req.body;
+
+            const newQuiz ={
+                quizTitle,
+                quizTime,
+                questionJson,
+                classId: new ObjectId(id)
+            };
+
+            const result = await quizCollection.insertOne(newQuiz);
+            res.send(result);
+        })
+
+        //quiz get api
+        app.get('/quizes/:id', verifyToken, async(req, res)=>{
+            const {id} = req.params;
+            const query = {classId: new ObjectId(id)}
+            const result = await quizCollection.find(query).toArray()
+            res.send(result);
+        })
+
+        app.get('/quiz/:id',verifyToken,  async(req, res)=>{
+            const {id}= req.params;
+            const query = {_id: new ObjectId(id)};
+            const result = await quizCollection.findOne(query);
+            res.send(result);
+        })
+
+        app.get('/assignment/:id', async (req, res) => {
             const id = req.params.id
             const query = { classId: new ObjectId(id) }
             const result = await assignmentCollection.find(query).toArray()
