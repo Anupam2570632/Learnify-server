@@ -543,6 +543,13 @@ async function run() {
                 const updatedDoc = {
                     $set: {
                         total_enrollment: (classDoc.total_enrollment || 0) + 1 // Ensure total_enrollment is a number
+                    },
+                    $push: {
+                        total_students: {
+                            userName: payment.userName,
+                            imageUrl: payment.imageUrl,
+                            email: payment.email
+                        }
                     }
                 };
                 const updateResult = await classCollection.updateOne(filter, updatedDoc);
